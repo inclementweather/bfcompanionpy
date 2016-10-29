@@ -68,7 +68,7 @@ class BFCompanion():
             r.raise_for_status()
             r = self._s.post(r.url, data=self._formdata)
             r.raise_for_status()
-            if r.cookies["ealocale"]:
+            if "ealocale" in r.cookies:
                 self._authenticated = True
             else:
                 raise Exception("Failed to log into your EA account.")
