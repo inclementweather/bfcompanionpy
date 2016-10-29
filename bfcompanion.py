@@ -68,7 +68,7 @@ class BFCompanion():
             r.raise_for_status()
             r = self._s.post(r.url, data=self._formdata)
             r.raise_for_status()
-            if r.cookies["ealocale"]:
+            if "ealocale" in r.cookies:
                 self._authenticated = True
             else:
                 raise Exception("Failed to log into your EA account.")
@@ -93,7 +93,7 @@ class BFCompanion():
 
     def loginapi(self):
         """
-        This starts a session with the API backend.
+        This starts a session with the API backend
         """
         authcode = self.getauthcode()
         params = {
@@ -105,7 +105,7 @@ class BFCompanion():
 
     def jsonRPC(self, method, params={}):
         """
-        Formats and sends the json data to the API and returns the result.
+        Formats and sends the json data to the API and returns the result
         TODO:
         Implement some kind of backoff or use async? Requests block so??
         """
@@ -124,6 +124,14 @@ class BFCompanion():
         result = r.json()["result"]
         return result
 
+    def getinitdata(self):
+        """
+        This gets your own data, personas, ids, etc
+        """
+        params = {"locale": "en-US"}
+        result = self.jsonRPC("Companion.initApp")
+        return result
+
     def getapistatus(self):
         """
         Queries for login status.
@@ -133,8 +141,8 @@ class BFCompanion():
 
     def getcareerstats(self, personaid):
         """
-        Combined BF4 + BF1 career stats. BF:H at some point too probably.
-        Mostly just highlights, top weapon, rank, etc. 
+        Combined BF4 + BF1 career stats. BF:H at some point too probably
+        Mostly just highlights, top weapon, rank, etc 
         """
         params = {"personaId": personaid}
         result = self.jsonRPC("Stats.getCareerForOwnedGamesByPersonaId",
@@ -143,7 +151,7 @@ class BFCompanion():
 
     def getfriendslist(self):
         """
-        Entire friends list is returned. You can find their personaId here.
+        Entire friends list is returned. You can find their personaId here
         """
         result = self.jsonRPC("Friend.getFriendsWithPresence")
         return result
@@ -182,7 +190,7 @@ class BFCompanion():
 
     def getvehiclesstats(self, game, personaid):
         """
-        Returns all vehicle stats, kills, time, destroyed, etc.
+        Returns all vehicle stats, kills, time, destroyed, etc
         """
         params = {
                 "game": game,
@@ -206,13 +214,13 @@ class BFCompanion():
 
     def getdetailedstats(self, game, personaid):
         """
-        Returns more detailed player stats rather than just highlights.
+        Returns more detailed player stats rather than just highlights
         """
         params = {
                 "game": game,
                 "personaId": personaid
                 }
-        result = self.jsonRPC("Stats.detailedStatsByPersonaID", params=params)
+        result = self.jsonRPC("Stats.detailedStatsByPersonaId", params=params)
         return result
 
 
