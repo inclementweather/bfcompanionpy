@@ -212,7 +212,7 @@ class BFCompanion():
                 "game": game,
                 "personaId": personaid
                 }
-        result = self.jsonRPC("Stats.detailedStatsByPersonaID", params=params)
+        result = self.jsonRPC("Stats.detailedStatsByPersonaId", params=params)
         return result
 
 
