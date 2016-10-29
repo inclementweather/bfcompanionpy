@@ -31,6 +31,10 @@ class BFCompanion():
         self.loginea()
         self.loginapi()
 
+    def keepalive(self):
+        # the website does this every 5 minutes
+        r = self._s.get("https://www.battlefield.com/service/keep-alive.json")
+
     def loginea(self):
         if self._authenticated == False:
             # using companion redirect
@@ -68,10 +72,6 @@ class BFCompanion():
         result = self.jsonRPC("Companion.loginFromAuthCode", params)
         self._sessionID = result["id"]
     
-    def checkapi(self):
-        response = self.jsonRPC("Companion.isLoggedIn")
-        return response["isLoggedIn"]
-        
     def jsonRPC(self, method, params={}):
         # implement some kind of backoff or use async?
         headers = { "Content-Type" : "application/json" }
@@ -93,6 +93,64 @@ class BFCompanion():
         params = { "personaId" : personaid }
         result = self.jsonRPC("Stats.getCareerForOwnedGamesByPersonaId",\
                              params=params)
+        return result
+
+    def getfriendslist(self):
+        result = self.jsonRPC("Friend.getFriendsWithPresence")
+        return result
+    
+    def getapistatus(self):
+        result = self.jsonRPC("Companion.isLoggedIn")
+        return result
+        
+    # this sometimes returns a url, others its null 
+    def getemblem(self, personaid):
+        params = { "personaId" : personaid }
+        result = self.jsonRPC("Emblems.getEquippedEmblem")
+        return result
+
+    def getweaponsstats(self, game, personaid):
+        params = { 
+                "game" : game,
+                "personaId" : personaid
+                }
+        result = self.jsonRPC("Progression.getWeaponsByPersonaId",\
+                              params=params)
+        return result
+
+    def getweapon(self, game, guid, personaid):
+        params = { 
+                "game" : game,
+                "guid" : guid,
+                "personaId" : personaid
+                }
+        result = self.jsonRPC("Progression.getWeapon", params=params)
+        return result
+    
+    def getvehiclesstats(self, game, personaid):
+        params = { 
+                "game" : game,
+                "personaId" : personaid
+                }
+        result = self.jsonRPC("Progression.getVehiclesByPersonaId",\
+                              params=params)
+        return result
+
+    def getvehicle(self, game, guid, personaid):
+        params = { 
+                "game" : game,
+                "guid" : guid,
+                "personaId" : personaid
+                }
+        result = self.jsonRPC("Progression.getVehicle", params=params)
+        return result
+
+    def getdetailedstats(self, game, personaid):
+        params = { 
+                "game" : game,
+                "personaId" : personaid
+                }
+        result = self.jsonRPC("Stats.detailedStatsByPersonaID", params=params)
         return result
 
 
