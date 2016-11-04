@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
-from requests import session as session
+from requests import session 
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 from uuid import uuid4 as uuid
 
 email = ""
 password = ""
-# you can find this number in the url after logging into battlefield companion
+#set this if you run the script from commandline
 personaId = ""
-
 
 class BFCompanion():
     _timeout = 20
@@ -24,11 +25,17 @@ class BFCompanion():
             "gCaptchaResponse": "",
             "_eventId": "submit",
             "password": password,
-            "email": email
-            }
+            "email": email}
+    _retries = Retry(
+            total=4,
+            backoff_factor=3,
+            status_forcelist=[ 104, 500, 502, 504 ])
+            
 
     def __init__(self):
         self._s = session()
+        self.a = HTTPAdapter(max_retries=self._retries)
+        self._s.mount("https://", self.a)
         self.loginea()
         self.loginapi()
 
@@ -38,24 +45,6 @@ class BFCompanion():
     def __exit__(self, exc_type, exc_value, traceback):
         self.logoutapi()
 
-    def logoutapi(self):
-        """ 
-        Unsure if this is necessary at all but given this isn't an officially
-        public API lets be nice and not leave open sessions for single cmdline
-        calls.
-        """
-        self.jsonRPC("Companion.logout")
-        self._session = ""
-
-    def keepalive(self):
-        """
-        The website does this every 5 minutes.
-        TODO:
-        Use until an idle timer reached then logout?
-        """
-        r = self._s.get("https://www.battlefield.com/service/keep-alive.json")
-        r.raise_for_status()
-
     def loginea(self):
         """
         Here we redirect from the companion page to get the login page. This
@@ -64,15 +53,14 @@ class BFCompanion():
         Check cookie or request URL? 
         """
         if not self._authenticated:
-            r = self._s.get(self._login)
+            r = self._s.get(self._login, timeout=self._timeout)
             r.raise_for_status()
-            r = self._s.post(r.url, data=self._formdata)
+            r = self._s.post(r.url, data=self._formdata, timeout=self._timeout)
             r.raise_for_status()
             if "ealocale" in r.cookies:
                 self._authenticated = True
             else:
                 raise Exception("Failed to log into your EA account.")
-        return
 
     def getauthcode(self):
         """
@@ -100,8 +88,26 @@ class BFCompanion():
                 "code": authcode,
                 "redirectUri": "nucleus:rest"
                 }
-        result = self.jsonRPC("Companion.loginFromAuthCode", params)
-        self._sessionID = result["id"]
+        r = self.jsonRPC("Companion.loginFromAuthCode", params)
+        self._sessionID = r["id"]
+
+    def logoutapi(self):
+        """ 
+        Unsure if this is necessary at all but given this isn't an officially
+        public API lets be nice and not leave open sessions for single cmdline
+        calls.
+        """
+        r = self.jsonRPC("Companion.logout")
+        self._session = ""
+    
+    def keepalive(self):
+        """
+        The website does this every 5 minutes.
+        TODO:
+        Use until an idle timer reached then logout?
+        """
+        r = self._s.get("https://www.battlefield.com/service/keep-alive.json")
+        r.raise_for_status()
 
     def jsonRPC(self, method, params={}):
         """
@@ -120,24 +126,31 @@ class BFCompanion():
                 }
         r = self._s.post(self._api, params=method, json=json, headers=headers,
                          timeout=self._timeout)
-        r.raise_for_status()
-        result = r.json()["result"]
-        return result
-
+        result = r.json()
+        if "error" in result:
+            error = result["error"]["message"]
+            print("ERROR:\n{}\nATTEMPT FAILED:\nmethod:{}\njson:{}\n"
+                  "headers:{}\n".format(error, method, json, headers))
+        elif "result" in result:
+            return result["result"]
+        else:
+            raise Exception("Unknown JSON data returned: {}".format(json))
+            return
+    
     def getinitdata(self):
         """
         This gets your own data, personas, ids, etc
         """
         params = {"locale": "en-US"}
-        result = self.jsonRPC("Companion.initApp")
-        return result
+        r = self.jsonRPC("Companion.initApp")
+        return r
 
     def getapistatus(self):
         """
         Queries for login status.
         """
-        result = self.jsonRPC("Companion.isLoggedIn")
-        return result
+        r = self.jsonRPC("Companion.isLoggedIn")
+        return r
 
     def getcareerstats(self, personaid):
         """
@@ -145,24 +158,24 @@ class BFCompanion():
         Mostly just highlights, top weapon, rank, etc 
         """
         params = {"personaId": personaid}
-        result = self.jsonRPC("Stats.getCareerForOwnedGamesByPersonaId",
+        r = self.jsonRPC("Stats.getCareerForOwnedGamesByPersonaId",
                               params=params)
-        return result
+        return r
 
     def getfriendslist(self):
         """
         Entire friends list is returned. You can find their personaId here
         """
-        result = self.jsonRPC("Friend.getFriendsWithPresence")
-        return result
+        r = self.jsonRPC("Friend.getFriendsWithPresence")
+        return r
 
     def getemblem(self, personaid):
         """
         Returns URL to emblem if it exists, otherwise null
         """
         params = {"personaId": personaid}
-        result = self.jsonRPC("Emblems.getEquippedEmblem", params=params)
-        return result
+        r = self.jsonRPC("Emblems.getEquippedEmblem", params=params)
+        return r
 
     def getweaponsstats(self, game, personaid):
         """
@@ -172,9 +185,9 @@ class BFCompanion():
                 "game": game,
                 "personaId": personaid
                 }
-        result = self.jsonRPC("Progression.getWeaponsByPersonaId",
+        r = self.jsonRPC("Progression.getWeaponsByPersonaId",
                               params=params)
-        return result
+        return r
 
     def getweapon(self, game, guid, personaid):
         """
@@ -185,8 +198,8 @@ class BFCompanion():
                 "guid": guid,
                 "personaId": personaid
                 }
-        result = self.jsonRPC("Progression.getWeapon", params=params)
-        return result
+        r = self.jsonRPC("Progression.getWeapon", params=params)
+        return r
 
     def getvehiclesstats(self, game, personaid):
         """
@@ -196,9 +209,9 @@ class BFCompanion():
                 "game": game,
                 "personaId": personaid
                 }
-        result = self.jsonRPC("Progression.getVehiclesByPersonaId",
+        r = self.jsonRPC("Progression.getVehiclesByPersonaId",
                               params=params)
-        return result
+        return r
 
     def getvehicle(self, game, guid, personaid):
         """
@@ -209,8 +222,8 @@ class BFCompanion():
                 "guid": guid,
                 "personaId": personaid
                 }
-        result = self.jsonRPC("Progression.getVehicle", params=params)
-        return result
+        r = self.jsonRPC("Progression.getVehicle", params=params)
+        return r
 
     def getdetailedstats(self, game, personaid):
         """
@@ -220,8 +233,8 @@ class BFCompanion():
                 "game": game,
                 "personaId": personaid
                 }
-        result = self.jsonRPC("Stats.detailedStatsByPersonaId", params=params)
-        return result
+        r = self.jsonRPC("Stats.detailedStatsByPersonaId", params=params)
+        return r
 
 
 if __name__ == "__main__":
