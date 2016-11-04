@@ -111,9 +111,7 @@ class BFCompanion():
 
     def jsonRPC(self, method, params={}):
         """
-        Formats and sends the json data to the API and returns the result
-        TODO:
-        Implement some kind of backoff or use async? Requests block so??
+        Formats and sends the json data to the API and returns the response
         """
         headers = {"Content-Type": "application/json"}
         if self._sessionID:
